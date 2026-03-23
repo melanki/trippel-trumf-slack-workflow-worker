@@ -117,6 +117,46 @@ docker build -t ghcr.io/<owner>/trippel-trumf-slack-workflow-worker:<tag> .
 
 The image uses a multi-stage `Dockerfile` and runs the published worker inside the official Playwright .NET container so browser dependencies are present at runtime.
 
+## GitHub Actions CI/CD
+
+This repository uses commit-sha release versioning and a three-workflow CI/CD chain.
+
+Version format:
+
+- `sha-<shortsha>` (example: `sha-a1b2c3d`)
+- `<shortsha>` is the 7-character commit hash from the merge commit on `main`
+
+Release and deployment flow:
+
+1. Changes are merged to `main`.
+2. `CI` validates restore/build/tests.
+3. `Container` builds and pushes image tags:
+   - `sha-<shortsha>` (immutable release tag)
+   - `main`
+4. `Container` creates a GitHub Release with tag `sha-<shortsha>`.
+5. `Deploy` is triggered by `release.published` and deploys image `ghcr.io/<owner>/<repo>:sha-<shortsha>` to k3s.
+
+Workflow summary:
+
+- `CI` (`.github/workflows/ci.yml`)
+  - Trigger: pull requests and pushes to `main`
+  - Runs `dotnet restore`, release build for the worker project, and test execution
+- `Container` (`.github/workflows/container.yml`)
+  - Trigger: successful `CI` workflow run on `main`, and manual dispatch
+  - Builds and pushes release-tagged image + creates GitHub Release on CI-validated `main` merges
+- `Deploy` (`.github/workflows/deploy.yml`)
+  - Trigger: published release, or manual dispatch
+  - Applies manifests, updates deployment image, and verifies rollout with `kubectl rollout status`
+
+Required GitHub Secrets for deployment:
+
+- `KUBECONFIG_B64`
+  - Base64-encoded kubeconfig used by the deploy workflow
+- `TrippelTrumfService__SlackWorkflowWebhookUrl`
+  - Injected by the deploy workflow into Kubernetes secret `trippel-trumf-worker-secrets` (key `TrippelTrumfService__SlackWorkflowWebhookUrl`)
+
+The Slack webhook value is never stored in git-tracked manifests or `appsettings` files.
+
 ## k3s deployment
 
 Kubernetes manifests are under `deploy/k8s/`.
@@ -135,7 +175,7 @@ kubectl -n trippel-trumf create secret generic trippel-trumf-worker-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -k deploy/k8s
 kubectl -n trippel-trumf set image deployment/trippel-trumf-worker \
-  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<commit-sha>
+  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<sha-a1b2c3d>
 kubectl -n trippel-trumf rollout status deployment/trippel-trumf-worker --timeout=300s
 ```
 

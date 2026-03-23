@@ -14,7 +14,9 @@ This folder contains a production-oriented base deployment for `melanki.trippelt
 
 `TrippelTrumfService:SlackWorkflowWebhookUrl` must come from a Kubernetes secret.
 
-Create/update it before applying the deployment:
+GitHub Actions deployment (`.github/workflows/deploy.yml`) creates or updates this automatically from GitHub Secret `TrippelTrumfService__SlackWorkflowWebhookUrl`.
+
+For manual/local deployment, create/update it before applying the deployment:
 
 ```bash
 kubectl -n trippel-trumf create secret generic trippel-trumf-worker-secrets \
@@ -41,9 +43,11 @@ To deploy a specific immutable image tag (recommended):
 
 ```bash
 kubectl -n trippel-trumf set image deployment/trippel-trumf-worker \
-  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<commit-sha>
+  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<sha-a1b2c3d>
 kubectl -n trippel-trumf rollout status deployment/trippel-trumf-worker --timeout=300s
 ```
+
+The GitHub Actions deploy workflow performs the same image update and rollout verification automatically when a GitHub Release is published.
 
 ## Validate
 
@@ -66,6 +70,6 @@ Rollback to a known previous image tag:
 
 ```bash
 kubectl -n trippel-trumf set image deployment/trippel-trumf-worker \
-  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<previous-commit-sha>
+  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<previous-sha-a1b2c3d>
 kubectl -n trippel-trumf rollout status deployment/trippel-trumf-worker --timeout=300s
 ```

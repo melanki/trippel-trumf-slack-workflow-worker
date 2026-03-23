@@ -83,3 +83,4 @@ When adding tests, prefer:
 - Use Conventional Commits (`feat:`, `fix:`, `chore:`, etc.).
 - Commit in logical chunks (feature, refactor, config, docs).
 - Keep PRs focused; include what changed, why, and how it was validated.
+- PR description should include `Resolves #<issue number>` for linked issue closure.

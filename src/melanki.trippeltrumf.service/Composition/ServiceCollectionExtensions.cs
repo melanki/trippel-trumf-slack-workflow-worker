@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Scraper>();
         services.AddSingleton<Polling.StateStore>();
         services.AddSingleton<Polling.ChangeFeed>();
+        services.AddSingleton<Notifying.ReminderStateStore>();
         services.AddHttpClient<Notifying.Client>();
         services.AddHostedService<Polling.Worker>();
         services.AddHostedService<Notifying.Worker>();

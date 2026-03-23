@@ -7,4 +7,4 @@ metadata:
     app.kubernetes.io/name: trippel-trumf-worker
 data:
   DOTNET_ENVIRONMENT: Production
-  Serilog__MinimumLevel__Default: Information
+  Serilog__MinimumLevel__Default: Debug

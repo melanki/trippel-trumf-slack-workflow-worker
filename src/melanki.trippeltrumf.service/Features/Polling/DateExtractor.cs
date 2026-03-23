@@ -5,7 +5,7 @@ namespace melanki.trippeltrumf.service.Features.Polling;
 public static class DateExtractor
 {
     private static readonly Regex DatePattern = new(
-        @"\b(?<day>[1-9]|[12]\d|3[01])\.\s*(?<month>januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)\b",
+        @"\b(?<day>[1-9]|[12]\d|3[01])\s*\.?\s*(?<month>januar|februar|mars|april|mai|juni|juli|august|september|oktober|november|desember)\b",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private static readonly Dictionary<string, int> NorwegianMonths = new(StringComparer.OrdinalIgnoreCase)

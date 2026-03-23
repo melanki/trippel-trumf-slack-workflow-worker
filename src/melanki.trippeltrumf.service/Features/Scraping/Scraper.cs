@@ -8,6 +8,9 @@ namespace melanki.trippeltrumf.service.Features.Scraping;
 public class Scraper
 {
     private const string TrippelTrumfPageUrl = "https://www.trumf.no/trippel-trumf";
+    private const string PreferredContentSelector = "article";
+    private const string FallbackMainSelector = "main#maincontent";
+    private static readonly TimeSpan ContentWaitTimeout = TimeSpan.FromSeconds(15);
     private readonly ILogger<Scraper> _logger;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,10 +36,17 @@ public class Scraper
                 @"() => {
                     const title = document.title || '';
                     const article = document.querySelector('article');
+                    const mainContent = document.querySelector('main#maincontent') ?? document.querySelector('main[role=""main""]');
+                    const contentRoot = article ?? mainContent ?? document.body;
                     const canonicalUrl = document.querySelector('link[rel=""canonical""]')?.href ?? null;
                     const description = document.querySelector('meta[name=""description""]')?.content ?? null;
-                    const articleHtml = article ? article.innerHTML : '';
-                    const paragraphNodes = article ? article.querySelectorAll('p') : [];
+                    const articleHtml = contentRoot ? contentRoot.innerHTML : '';
+                    const paragraphNodes = contentRoot ? contentRoot.querySelectorAll('p') : [];
+                    const contentSource = article
+                        ? 'article'
+                        : mainContent
+                            ? 'main'
+                            : 'body';
 
                     const paragraphs = Array.from(paragraphNodes)
                         .map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim())
@@ -48,7 +58,8 @@ public class Scraper
                         canonicalUrl,
                         description,
                         articleHtml,
-                        paragraphs
+                        paragraphs,
+                        contentSource
                     });
                 }"),
             cancellationToken);
@@ -56,9 +67,10 @@ public class Scraper
         var snapshot = JsonSerializer.Deserialize<PageSnapshot>(snapshotJson, JsonOptions)
             ?? throw new InvalidOperationException("Failed to deserialize structured page snapshot.");
         _logger.LogDebug(
-            "Structured page scraped. Url {Url}, Title {Title}, ParagraphCount {ParagraphCount}, ArticleHtmlLength {ArticleHtmlLength}",
+            "Structured page scraped. Url {Url}, Title {Title}, ContentSource {ContentSource}, ParagraphCount {ParagraphCount}, ArticleHtmlLength {ArticleHtmlLength}",
             snapshot.Url,
             snapshot.Title,
+            snapshot.ContentSource,
             snapshot.Paragraphs.Count,
             snapshot.ArticleHtml.Length);
 
@@ -78,11 +90,10 @@ public class Scraper
             page => page.EvaluateAsync<string>(
                 @"() => {
                     const article = document.querySelector('article');
-                    if (!article) {
-                        return '';
-                    }
+                    const mainContent = document.querySelector('main#maincontent') ?? document.querySelector('main[role=""main""]');
+                    const contentRoot = article ?? mainContent ?? document.body;
 
-                    return (article.innerText || article.textContent || '')
+                    return (contentRoot?.innerText || contentRoot?.textContent || '')
                         .replace(/\s+/g, ' ')
                         .trim();
                 }"),
@@ -95,9 +106,16 @@ public class Scraper
             page => page.EvaluateAsync<string>(
                 @"() => {
                     const article = document.querySelector('article');
-                    const articleText = article
-                        ? (article.innerText || article.textContent || '').replace(/\s+/g, ' ').trim()
-                        : '';
+                    const mainContent = document.querySelector('main#maincontent') ?? document.querySelector('main[role=""main""]');
+                    const contentRoot = article ?? mainContent ?? document.body;
+                    const contentSource = article
+                        ? 'article'
+                        : mainContent
+                            ? 'main'
+                            : 'body';
+                    const articleText = (contentRoot?.innerText || contentRoot?.textContent || '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
 
                     const findDateModified = (value) => {
                         if (!value || typeof value !== 'object') {
@@ -150,7 +168,8 @@ public class Scraper
 
                     return JSON.stringify({
                         articleText,
-                        dateModified
+                        dateModified,
+                        contentSource
                     });
                 }"),
             cancellationToken);
@@ -159,8 +178,16 @@ public class Scraper
             ?? throw new InvalidOperationException("Failed to deserialize rendered article snapshot.");
 
         var dateModifiedParts = ParseDateParts(snapshot.DateModified);
+        if (!string.Equals(snapshot.ContentSource, "article", StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "Preferred article element was missing during scrape. Using {ContentSource} fallback.",
+                snapshot.ContentSource);
+        }
+
         _logger.LogDebug(
-            "Rendered article scraped. ArticleTextLength {ArticleTextLength}, DateModifiedRaw {DateModifiedRaw}, DateModifiedYear {DateModifiedYear}, DateModifiedMonth {DateModifiedMonth}",
+            "Rendered article scraped. ContentSource {ContentSource}, ArticleTextLength {ArticleTextLength}, DateModifiedRaw {DateModifiedRaw}, DateModifiedYear {DateModifiedYear}, DateModifiedMonth {DateModifiedMonth}",
+            snapshot.ContentSource,
             snapshot.ArticleText.Length,
             snapshot.DateModified,
             dateModifiedParts.Year,
@@ -184,6 +211,7 @@ public class Scraper
         {
             WaitUntil = WaitUntilState.NetworkIdle
         });
+        await WaitForContentAsync(page, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
         return await action(page);
@@ -216,12 +244,14 @@ public class Scraper
         public string? Description { get; init; }
         public string ArticleHtml { get; init; } = string.Empty;
         public IReadOnlyList<string> Paragraphs { get; init; } = [];
+        public string ContentSource { get; init; } = "unknown";
     }
 
     private sealed class RenderedArticleSnapshotDto
     {
         public string ArticleText { get; init; } = string.Empty;
         public string? DateModified { get; init; }
+        public string ContentSource { get; init; } = "unknown";
     }
 
     private static (int? Year, int? Month) ParseDateParts(string? value)
@@ -241,5 +271,38 @@ public class Scraper
         }
 
         return (null, null);
+    }
+
+    private static async Task WaitForContentAsync(IPage page, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            await page.WaitForSelectorAsync(
+                PreferredContentSelector,
+                new PageWaitForSelectorOptions
+                {
+                    State = WaitForSelectorState.Attached,
+                    Timeout = (float)ContentWaitTimeout.TotalMilliseconds
+                });
+            return;
+        }
+        catch (TimeoutException)
+        {
+            // The page can be rendered without an article element; fallback selectors are handled below.
+        }
+        catch (PlaywrightException)
+        {
+            // Continue to fallback selectors.
+        }
+
+        await page.WaitForSelectorAsync(
+            FallbackMainSelector,
+            new PageWaitForSelectorOptions
+            {
+                State = WaitForSelectorState.Attached,
+                Timeout = (float)ContentWaitTimeout.TotalMilliseconds
+            });
     }
 }

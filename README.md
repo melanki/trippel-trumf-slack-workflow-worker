@@ -107,6 +107,40 @@ If Playwright browser dependencies are missing on a fresh machine, run after bui
 pwsh src/melanki.trippeltrumf.service/bin/Debug/net10.0/playwright.ps1 install
 ```
 
+## Container image
+
+Build a deployable image from repository root:
+
+```bash
+docker build -t ghcr.io/<owner>/trippel-trumf-slack-workflow-worker:<tag> .
+```
+
+The image uses a multi-stage `Dockerfile` and runs the published worker inside the official Playwright .NET container so browser dependencies are present at runtime.
+
+## k3s deployment
+
+Kubernetes manifests are under `deploy/k8s/`.
+
+The deployment references a Kubernetes secret for Slack webhook configuration:
+
+- Secret name: `trippel-trumf-worker-secrets`
+- Secret key: `TrippelTrumfService__SlackWorkflowWebhookUrl`
+
+Quick start:
+
+```bash
+kubectl apply -f deploy/k8s/namespace.yaml
+kubectl -n trippel-trumf create secret generic trippel-trumf-worker-secrets \
+  --from-literal=TrippelTrumfService__SlackWorkflowWebhookUrl='https://hooks.slack.com/triggers/...' \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -k deploy/k8s
+kubectl -n trippel-trumf set image deployment/trippel-trumf-worker \
+  worker=ghcr.io/melanki/trippel-trumf-slack-workflow-worker:<commit-sha>
+kubectl -n trippel-trumf rollout status deployment/trippel-trumf-worker --timeout=300s
+```
+
+See `deploy/k8s/README.md` for validation and rollback procedures.
+
 ## Logging
 
 - Logging is handled by Serilog with structured JSON output to console.

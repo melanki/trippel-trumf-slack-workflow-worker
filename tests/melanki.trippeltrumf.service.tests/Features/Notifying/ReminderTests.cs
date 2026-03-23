@@ -3,7 +3,7 @@ using Xunit;
 
 namespace melanki.trippeltrumf.service.tests.Features.Notifying;
 
-public sealed class ReminderPolicyTests
+public sealed class ReminderTests
 {
     [Fact]
     public void Evaluate_ReturnsEligible_OnCalendarDayBefore_WhenNotAlreadySent()

@@ -1,0 +1,106 @@
+name: Deploy
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Optional image tag to deploy (for example sha-a1b2c3d). Defaults to main for manual runs.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-trippel-trumf
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${KUBECONFIG_B64}" ]]; then
+            echo "KUBECONFIG_B64 secret is required"
+            exit 1
+          fi
+
+          mkdir -p "${HOME}/.kube"
+          echo "${KUBECONFIG_B64}" | base64 --decode > "${HOME}/.kube/config"
+          chmod 600 "${HOME}/.kube/config"
+
+      - name: Determine image reference
+        id: image
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_IMAGE_TAG: ${{ github.event.inputs.image_tag || '' }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          image_repository="ghcr.io/${REPOSITORY,,}"
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" && -n "${INPUT_IMAGE_TAG}" ]]; then
+            image_tag="${INPUT_IMAGE_TAG}"
+          elif [[ "${EVENT_NAME}" == "release" && -n "${RELEASE_TAG}" ]]; then
+            image_tag="${RELEASE_TAG}"
+          else
+            image_tag="main"
+          fi
+
+          image_ref="${image_repository}:${image_tag}"
+
+          echo "tag=${image_tag}" >> "${GITHUB_OUTPUT}"
+          echo "ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "Deploying image ${image_ref}"
+
+      - name: Apply namespace
+        run: kubectl apply -f deploy/k8s/namespace.yaml
+
+      - name: Create or update Slack webhook secret
+        env:
+          SLACK_WORKFLOW_WEBHOOK_URL: ${{ secrets.TrippelTrumfService__SlackWorkflowWebhookUrl }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SLACK_WORKFLOW_WEBHOOK_URL}" ]]; then
+            echo "TrippelTrumfService__SlackWorkflowWebhookUrl secret is required"
+            exit 1
+          fi
+
+          temp_file="$(mktemp)"
+          trap 'rm -f "${temp_file}"' EXIT
+          printf '%s' "${SLACK_WORKFLOW_WEBHOOK_URL}" > "${temp_file}"
+
+          kubectl -n trippel-trumf create secret generic trippel-trumf-worker-secrets \
+            --from-file=TrippelTrumfService__SlackWorkflowWebhookUrl="${temp_file}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply manifests
+        run: kubectl apply -k deploy/k8s
+
+      - name: Set deployment image
+        run: |
+          kubectl -n trippel-trumf set image deployment/trippel-trumf-worker \
+            worker=${{ steps.image.outputs.ref }}
+
+      - name: Verify rollout
+        run: |
+          kubectl -n trippel-trumf rollout status deployment/trippel-trumf-worker --timeout=300s
+          kubectl -n trippel-trumf get deployment trippel-trumf-worker -o wide

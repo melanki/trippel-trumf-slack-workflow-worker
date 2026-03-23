@@ -42,7 +42,7 @@ public sealed class Worker : BackgroundService
         var todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
         var currentSnapshot = _stateStore.GetSnapshot();
         _logger.LogDebug(
-            "Refresh check ({Reason}). todayUtc={TodayUtc}, cachedNextDate={CachedNextDate}, lastError={LastError}",
+            "Refresh check {Reason}. TodayUtc {TodayUtc}, CachedNextDate {CachedNextDate}, LastError {LastError}",
             reason,
             todayUtc,
             currentSnapshot.ParsedNextDate,
@@ -62,7 +62,7 @@ public sealed class Worker : BackgroundService
             var before = currentSnapshot;
             var snapshot = await _scraper.GetRenderedArticleSnapshot(cancellationToken);
             _logger.LogDebug(
-                "Scrape snapshot ({Reason}). articleTextLength={ArticleTextLength}, dateModifiedYear={DateModifiedYear}, dateModifiedMonth={DateModifiedMonth}",
+                "Scrape snapshot {Reason}. ArticleTextLength {ArticleTextLength}, DateModifiedYear {DateModifiedYear}, DateModifiedMonth {DateModifiedMonth}",
                 reason,
                 snapshot.ArticleText.Length,
                 snapshot.DateModifiedYear,
@@ -73,12 +73,12 @@ public sealed class Worker : BackgroundService
                 todayUtc,
                 snapshot.DateModifiedYear,
                 snapshot.DateModifiedMonth);
-            _logger.LogDebug("Extracted next date ({Reason}). nextTrippelTrumfDate={NextDate}", reason, result.NextTrippelTrumfDate);
+            _logger.LogDebug("Extracted next date {Reason}. NextTrippelTrumfDate {NextDate}", reason, result.NextTrippelTrumfDate);
 
             _stateStore.UpdateSuccess(result, snapshot.DateModifiedYear, snapshot.DateModifiedMonth);
             var after = _stateStore.GetSnapshot();
             PublishStateChangeIfNeeded(before, after, reason);
-            _logger.LogInformation("Refresh completed. nextTrippelTrumfDate={NextDate}", result.NextTrippelTrumfDate);
+            _logger.LogInformation("Refresh completed. NextTrippelTrumfDate {NextDate}", result.NextTrippelTrumfDate);
         }
         catch (Exception exception)
         {
@@ -117,7 +117,7 @@ public sealed class Worker : BackgroundService
         }
 
         _logger.LogDebug(
-            "State changed ({Reason}). beforeDate={BeforeDate}, afterDate={AfterDate}, beforeError={BeforeError}, afterError={AfterError}",
+            "State changed {Reason}. BeforeDate {BeforeDate}, AfterDate {AfterDate}, BeforeError {BeforeError}, AfterError {AfterError}",
             reason,
             before.Result?.NextTrippelTrumfDate,
             after.Result?.NextTrippelTrumfDate,

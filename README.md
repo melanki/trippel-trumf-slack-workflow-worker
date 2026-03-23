@@ -107,6 +107,8 @@ pwsh src/melanki.trippeltrumf.service/bin/Debug/net10.0/playwright.ps1 install
 
 ## Logging
 
+- Logging is handled by Serilog with structured JSON output to console.
+- Configure levels via `Serilog:MinimumLevel` in `appsettings*.json`.
 - `Information`: lifecycle and successful major events
 - `Debug`: extraction details, cache decisions, state transitions, webhook flow
 

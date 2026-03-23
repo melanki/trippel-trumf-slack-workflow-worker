@@ -26,7 +26,7 @@ public sealed class StateStore
         {
             var requiresRefresh = _nextDate is null || _nextDate <= todayUtc;
             _logger.LogDebug(
-                "RequiresRefresh evaluated. todayUtc={TodayUtc}, cachedNextDate={CachedNextDate}, requiresRefresh={RequiresRefresh}",
+                "RequiresRefresh evaluated. TodayUtc {TodayUtc}, CachedNextDate {CachedNextDate}, RequiresRefresh {RequiresRefresh}",
                 todayUtc,
                 _nextDate,
                 requiresRefresh);
@@ -69,7 +69,7 @@ public sealed class StateStore
             }
 
             _logger.LogDebug(
-                "State success update. nextTrippelTrumfDate={NextDate}, parsedNextDate={ParsedNextDate}, referenceYear={ReferenceYear}, referenceMonth={ReferenceMonth}, cachedAtUtc={CachedAtUtc}",
+                "State success update. NextTrippelTrumfDate {NextDate}, ParsedNextDate {ParsedNextDate}, ReferenceYear {ReferenceYear}, ReferenceMonth {ReferenceMonth}, CachedAtUtc {CachedAtUtc}",
                 result.NextTrippelTrumfDate,
                 _nextDate,
                 _referenceYear,
@@ -83,7 +83,7 @@ public sealed class StateStore
         lock (_lock)
         {
             _lastError = error;
-            _logger.LogDebug("State failure update. error={Error}", _lastError);
+            _logger.LogDebug("State failure update. Error {Error}", _lastError);
         }
     }
 

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trippel-trumf-worker-config
+  namespace: trippel-trumf
+  labels:
+    app.kubernetes.io/name: trippel-trumf-worker
+data:
+  DOTNET_ENVIRONMENT: Production
+  Serilog__MinimumLevel__Default: Information

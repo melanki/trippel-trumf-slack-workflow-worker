@@ -9,7 +9,8 @@ Worker service that monitors Trumf's Trippel-Trumf page, extracts the next campa
 3. It extracts date candidates from article text using Norwegian month names.
 4. It stores the latest result and metadata in memory.
 5. It publishes state changes to a channel that the notifying worker forwards to Slack.
-6. It schedules the next check at UTC midnight and repeats.
+6. It evaluates day-before reminders in `Europe/Oslo` time and keeps reminder state in memory for the current process lifetime.
+7. It schedules the next check at UTC midnight and repeats.
 
 Slack payload shape:
 
@@ -36,6 +37,7 @@ src/melanki.trippeltrumf.service
 │   ├── Notifying/
 │   │   ├── Client.cs
 │   │   ├── Options.cs
+│   │   ├── Reminder.cs
 │   │   └── Worker.cs
 │   ├── Polling/
 │   │   ├── ChangeFeed.cs

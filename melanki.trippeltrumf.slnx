@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="src/melanki.trippeltrumf.service/melanki.trippeltrumf.service.csproj" />
+  <Project Path="tests/melanki.trippeltrumf.service.tests/melanki.trippeltrumf.service.tests.csproj" />
 </Solution>

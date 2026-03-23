@@ -1,49 +1,85 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-Keep the API code organized by feature and responsibility.
+## Scope
+This repository contains a single .NET worker service:
 
-- `src/` contains application code.
-- `src/modules/<feature>/` groups route, controller, service, and schema files per domain.
-- `src/shared/` stores reusable utilities, middleware, and error helpers.
-- `src/config/` contains runtime configuration and environment parsing.
-- `tests/` mirrors `src/` for unit and integration coverage.
-- `docs/` stores API notes, decision records, and onboarding docs.
+- `src/melanki.trippeltrumf.service`
 
-Prefer small, focused modules over large cross-cutting files.
+The service scrapes Trumf content with Playwright, extracts next Trippel‑Trumf date, stores state in memory, and posts state changes to Slack workflow webhooks.
 
-## Build, Test, and Development Commands
-Use npm scripts as the single entry point for local workflows:
+## Project Structure
+Keep code organized by vertical feature slices under `Features/`:
 
-- `npm install` installs dependencies.
-- `npm run dev` starts the API in watch mode for development.
-- `npm run build` compiles production artifacts.
-- `npm test` runs the automated test suite.
-- `npm run lint` checks style and static analysis.
-- `npm run format` applies code formatting.
+- `Features/Scraping`
+- `Features/Polling`
+- `Features/Notifying`
 
-If you add or rename scripts, update this guide and `package.json` together.
+Composition and startup:
 
-## Coding Style & Naming Conventions
-- Use TypeScript with 2-space indentation and trailing semicolons.
-- Use `camelCase` for variables/functions, `PascalCase` for classes/types, and `UPPER_SNAKE_CASE` for constants.
-- Use `kebab-case` for file names (example: `order-service.ts`).
-- Keep functions single-purpose; extract shared logic into `src/shared/`.
-- Run lint and format checks before opening a pull request.
+- `Program.cs`
+- `Composition/ServiceCollectionExtensions.cs`
 
-## Testing Guidelines
-- Write unit tests for business logic and integration tests for HTTP endpoints.
-- Name tests `*.spec.ts` and place them in `tests/` mirroring source paths.
-- Target meaningful coverage for changed code paths, including error cases.
-- Prefer deterministic tests; mock external services and avoid network calls.
+Conventions for feature folders:
 
-## Commit & Pull Request Guidelines
-- Follow Conventional Commits (for example: `feat(auth): add token refresh endpoint`).
-- Keep commits focused and atomic; avoid mixing refactors with behavior changes.
-- PRs should include: purpose summary, key changes, test evidence, and linked issue IDs.
-- Include request/response examples when API behavior changes.
+- Use simple file/type names inside each feature (`Worker`, `Client`, `Options`, `StateStore`, etc.).
+- Avoid repeating `TrippelTrumf` prefix inside feature-internal types unless needed for clarity.
 
-## Security & Configuration Tips
-- Never commit secrets; use `.env` locally and keep `.env.example` updated.
-- Validate and sanitize all external input at route boundaries.
-- Document new configuration keys in `docs/` and the example env file.
+## Build, Run, and Validation
+Primary commands:
+
+- `dotnet restore`
+- `dotnet build src/melanki.trippeltrumf.service/melanki.trippeltrumf.service.csproj -v minimal`
+- `DOTNET_ENVIRONMENT=Development dotnet run --project src/melanki.trippeltrumf.service/melanki.trippeltrumf.service.csproj`
+
+Environment selection:
+
+- Prefer `DOTNET_ENVIRONMENT` (`Development`, `Production`, etc.).
+- `Program.cs` also reads `ASPNETCORE_ENVIRONMENT` as fallback.
+
+## Configuration
+Config files live in service project root:
+
+- `appsettings.json` (base)
+- `appsettings.Development.json`
+- `appsettings.Production.json`
+
+Current required key:
+
+- `TrippelTrumfService:SlackWorkflowWebhookUrl`
+
+Rules:
+
+- Missing/empty webhook URL must fail startup.
+- Never commit real secrets.
+- `appsettings.*.json` is git-ignored for environment-specific files.
+
+## Coding Style
+- Use modern C# with nullable enabled.
+- Keep classes small and single-purpose.
+- Prefer async APIs and cancellation token plumbing end-to-end.
+- Keep logs structured (`{PropertyName}` placeholders).
+- Keep business logic deterministic and isolated from infrastructure when possible.
+
+## Logging
+- Keep `Information` logs for lifecycle and successful major events.
+- Use `Debug` logs for diagnostics (extraction details, state transitions, webhook post flow).
+- Do not log secrets or full webhook URLs.
+
+## Scraping and Date Logic
+- Scrape rendered content via Playwright.
+- Extract date from rendered article text using Norwegian month names.
+- Year rule:
+  - Use `dateModified` year from JSON-LD.
+  - Only roll to next year when `dateModified` month is December and extracted month is January.
+
+## Testing Expectations
+When adding tests, prefer:
+
+- Unit tests for date extraction/state logic.
+- Integration-style tests for worker behavior with mocked external dependencies (Slack/web requests).
+- Deterministic tests with fixed clock inputs.
+
+## Git and PR Workflow
+- Use Conventional Commits (`feat:`, `fix:`, `chore:`, etc.).
+- Commit in logical chunks (feature, refactor, config, docs).
+- Keep PRs focused; include what changed, why, and how it was validated.

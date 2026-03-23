@@ -25,7 +25,7 @@ public sealed class Worker : BackgroundService
         await foreach (var change in _changeFeed.ReadAllAsync(stoppingToken))
         {
             _logger.LogDebug(
-                "Received state change event. reason={Reason}, nextTrippelTrumfDate={NextDate}, error={Error}",
+                "Received state change event. Reason {Reason}, NextTrippelTrumfDate {NextDate}, Error {Error}",
                 change.Reason,
                 change.Snapshot.Result?.NextTrippelTrumfDate,
                 change.Snapshot.LastError);

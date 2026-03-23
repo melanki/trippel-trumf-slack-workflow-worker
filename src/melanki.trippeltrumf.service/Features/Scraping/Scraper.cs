@@ -56,7 +56,7 @@ public class Scraper
         var snapshot = JsonSerializer.Deserialize<PageSnapshot>(snapshotJson, JsonOptions)
             ?? throw new InvalidOperationException("Failed to deserialize structured page snapshot.");
         _logger.LogDebug(
-            "Structured page scraped. url={Url}, title={Title}, paragraphCount={ParagraphCount}, articleHtmlLength={ArticleHtmlLength}",
+            "Structured page scraped. Url {Url}, Title {Title}, ParagraphCount {ParagraphCount}, ArticleHtmlLength {ArticleHtmlLength}",
             snapshot.Url,
             snapshot.Title,
             snapshot.Paragraphs.Count,
@@ -160,7 +160,7 @@ public class Scraper
 
         var dateModifiedParts = ParseDateParts(snapshot.DateModified);
         _logger.LogDebug(
-            "Rendered article scraped. articleTextLength={ArticleTextLength}, dateModifiedRaw={DateModifiedRaw}, dateModifiedYear={DateModifiedYear}, dateModifiedMonth={DateModifiedMonth}",
+            "Rendered article scraped. ArticleTextLength {ArticleTextLength}, DateModifiedRaw {DateModifiedRaw}, DateModifiedYear {DateModifiedYear}, DateModifiedMonth {DateModifiedMonth}",
             snapshot.ArticleText.Length,
             snapshot.DateModified,
             dateModifiedParts.Year,

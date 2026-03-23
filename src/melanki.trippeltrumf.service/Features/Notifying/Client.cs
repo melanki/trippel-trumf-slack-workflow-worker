@@ -35,7 +35,7 @@ public sealed class Client
             trippel_trumf_date = BuildDate(change)
         };
         _logger.LogDebug(
-            "Posting Slack notification. reason={Reason}, nextTrippelTrumfDate={NextDate}",
+            "Posting Slack notification. Reason {Reason}, NextTrippelTrumfDate {NextDate}",
             change.Reason,
             payload.trippel_trumf_date);
 
@@ -48,7 +48,7 @@ public sealed class Client
         }
 
         _logger.LogDebug(
-            "Slack notification succeeded. statusCode={StatusCode}, reason={Reason}",
+            "Slack notification succeeded. StatusCode {StatusCode}, Reason {Reason}",
             (int)response.StatusCode,
             change.Reason);
     }

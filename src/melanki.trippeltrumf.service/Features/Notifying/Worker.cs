@@ -55,8 +55,15 @@ public sealed class Worker : BackgroundService
 
             try
             {
-                await _client.NotifyStateChangeAsync(change, stoppingToken);
-                _logger.LogInformation("Published state change to Slack ({Reason}).", change.Reason);
+                var sent = await _client.NotifyStateChangeAsync(change, stoppingToken);
+                if (sent)
+                {
+                    _logger.LogInformation("Published state change to Slack ({Reason}).", change.Reason);
+                }
+                else
+                {
+                    _logger.LogDebug("State change was not sent to Slack ({Reason}).", change.Reason);
+                }
             }
             catch (Exception exception)
             {
@@ -107,14 +114,24 @@ public sealed class Worker : BackgroundService
 
         try
         {
-            await _client.NotifyStateChangeAsync(
+            var sent = await _client.NotifyStateChangeAsync(
                 new StateChange("day-before-reminder", snapshot),
                 cancellationToken);
-            _reminderStateStore.TryMarkSent(nextDate.Value);
-            _logger.LogInformation(
-                "Published day-before reminder for date {NextDate}. TimeZoneId {TimeZoneId}",
-                nextDate,
-                _reminderTimeZone.Id);
+            if (sent)
+            {
+                _reminderStateStore.TryMarkSent(nextDate.Value);
+                _logger.LogInformation(
+                    "Published day-before reminder for date {NextDate}. TimeZoneId {TimeZoneId}",
+                    nextDate,
+                    _reminderTimeZone.Id);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Day-before reminder was not sent for date {NextDate}. TimeZoneId {TimeZoneId}",
+                    nextDate,
+                    _reminderTimeZone.Id);
+            }
         }
         catch (Exception exception)
         {
